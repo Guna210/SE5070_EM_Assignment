@@ -1,0 +1,38 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Signing keys - never commit
+*.jks
+*.keystore
+
+# Build outputs (unanchored, catches future modules)
+build/
+*.apk
+*.aab
+
+# Gradle / Kotlin session data
+.kotlin/
+
+# IDE
+/.idea/misc.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/deviceManager.xml
+/.idea/appInsightsSettings.xml
+
+# Windows / OS junk
+Thumbs.db
+desktop.ini
+*.log

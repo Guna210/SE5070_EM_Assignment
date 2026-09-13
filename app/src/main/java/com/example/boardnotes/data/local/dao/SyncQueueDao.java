@@ -30,9 +30,8 @@ public interface SyncQueueDao {
     @Query("DELETE FROM sync_queue WHERE queueId = :queueId")
     void remove(long queueId);
 
-    @Query("SELECT COUNT(*) FROM sync_queue WHERE status != :done")
-    LiveData<Integer> observeOutstanding(QueueStatus done);
-
+    @Query("SELECT COUNT(*) FROM sync_queue")
+    LiveData<Integer> observeQueueSize();
 
     /* Atomically take a batch of pending work and mark it IN_FLIGHT, so two
        worker runs can never dispatch the same entry twice. */

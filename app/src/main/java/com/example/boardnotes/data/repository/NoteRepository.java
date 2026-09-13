@@ -13,6 +13,7 @@ import com.example.boardnotes.domain.QueueStatus;
 import com.example.boardnotes.domain.SyncOperation;
 import com.example.boardnotes.domain.SyncState;
 import com.example.boardnotes.util.AppExecutors;
+import com.example.boardnotes.util.NetworkMonitor;
 
 import java.util.List;
 
@@ -23,12 +24,14 @@ public class NoteRepository {
     private final NoteDao noteDao;
     private final SyncQueueDao queueDao;
     private final AppExecutors executors;
+    private final NetworkMonitor networkMonitor;
 
     private NoteRepository(Context context) {
         db = AppDatabase.getInstance(context);
         noteDao = db.noteDao();
         queueDao = db.syncQueueDao();
         executors = AppExecutors.getInstance();
+        networkMonitor = NetworkMonitor.getInstance(context);
     }
 
     public static NoteRepository getInstance(Context context) {
@@ -49,6 +52,10 @@ public class NoteRepository {
 
     public LiveData<Integer> observeQueueSize() {
         return queueDao.observeQueueSize();
+    }
+
+    public LiveData<Boolean> observeOnline() {
+        return networkMonitor;
     }
 
     // Creates a note and queues it for upload, atomically.

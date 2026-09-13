@@ -3,4 +3,6 @@
     <string name="loading">Loading…</string>
     <string name="add_test_note">Add test note</string>
     <string name="delete_oldest">Delete oldest note</string>
+    <string name="online">Online</string>
+    <string name="offline">Offline</string>
 </resources>

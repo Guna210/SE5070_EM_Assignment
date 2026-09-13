@@ -36,9 +36,10 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel.getUiState().observe(this, state -> binding.status.setText(String.format(
                 Locale.getDefault(),
-                "Notes: %d%nPending sync ops: %d",
+               "Notes: %d%nPending sync ops: %d%nNetwork: %s",
                 state.noteCount(),
-                state.queueSize)));
+                state.queueSize,
+                getString(state.isOnline ? R.string.online : R.string.offline))));
 
         binding.addNote.setOnClickListener(v -> viewModel.addTestNote());
         binding.deleteOldest.setOnClickListener(v -> viewModel.deleteOldest());

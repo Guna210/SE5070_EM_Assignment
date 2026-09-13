@@ -27,6 +27,9 @@ public class NoteListViewModel extends AndroidViewModel {
 
         uiState.addSource(repository.observeQueueSize(), size ->
                 uiState.setValue(current().withQueueSize(size == null ? 0 : size)));
+
+        uiState.addSource(repository.observeOnline(), online ->
+                uiState.setValue(current().withOnline(online != null && online)));
     }
 
     private NoteListUiState current() {

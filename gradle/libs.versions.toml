@@ -12,6 +12,8 @@ work = "2.11.2"
 lifecycle = "2.11.0"
 camerax = "1.6.2"
 mlkitText = "16.0.1"
+googleServices = "4.5.0"
+firebaseBom = "34.19.0"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -42,6 +44,11 @@ camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "
 # ML Kit text recognition - BUNDLED model, works offline (DR-17)
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitText" }
 
+# Firebase - versions come from the BoM
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

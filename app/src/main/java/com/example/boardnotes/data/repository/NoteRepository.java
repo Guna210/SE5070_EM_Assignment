@@ -14,6 +14,7 @@ import com.example.boardnotes.domain.SyncOperation;
 import com.example.boardnotes.domain.SyncState;
 import com.example.boardnotes.util.AppExecutors;
 import com.example.boardnotes.util.NetworkMonitor;
+import com.example.boardnotes.sync.SyncScheduler;
 
 import java.util.List;
 
@@ -25,8 +26,10 @@ public class NoteRepository {
     private final SyncQueueDao queueDao;
     private final AppExecutors executors;
     private final NetworkMonitor networkMonitor;
+    private final Context appContext;
 
     private NoteRepository(Context context) {
+        appContext = context.getApplicationContext();
         db = AppDatabase.getInstance(context);
         noteDao = db.noteDao();
         queueDao = db.syncQueueDao();
@@ -52,6 +55,10 @@ public class NoteRepository {
 
     public LiveData<Integer> observeQueueSize() {
         return queueDao.observeQueueSize();
+    }
+
+    public LiveData<Integer> observeSyncedCount() {
+        return noteDao.observeCountByState(SyncState.SYNCED);
     }
 
     public LiveData<Boolean> observeOnline() {
@@ -80,6 +87,7 @@ public class NoteRepository {
                 noteDao.insert(note);
                 queueDao.enqueue(entry);
             });
+            SyncScheduler.requestSync(appContext);
         });
     }
 
@@ -96,6 +104,7 @@ public class NoteRepository {
                 noteDao.delete(note);
                 queueDao.enqueue(entry);
             });
+            SyncScheduler.requestSync(appContext);
         });
     }
 }

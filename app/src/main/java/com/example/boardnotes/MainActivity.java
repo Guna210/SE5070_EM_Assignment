@@ -14,8 +14,6 @@ import com.example.boardnotes.databinding.ActivityMainBinding;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
 import com.google.firebase.auth.FirebaseAuth;
 
-import java.util.Locale;
-
 public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
@@ -36,10 +34,10 @@ public class MainActivity extends AppCompatActivity {
 
         NoteListViewModel viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
 
-        viewModel.getUiState().observe(this, state -> binding.status.setText(String.format(
-                Locale.getDefault(),
-                "Notes: %d%nPending sync ops: %d%nNetwork: %s",
+        viewModel.getUiState().observe(this, state -> binding.status.setText(getString(
+                R.string.status_format,
                 state.noteCount(),
+                state.syncedCount,
                 state.queueSize,
                 getString(state.isOnline ? R.string.online : R.string.offline))));
 

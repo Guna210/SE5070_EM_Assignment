@@ -1,6 +1,7 @@
 package com.example.boardnotes;
 
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,8 +12,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.example.boardnotes.databinding.ActivityMainBinding;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
-
-import java.util.Locale;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -34,14 +34,31 @@ public class MainActivity extends AppCompatActivity {
 
         NoteListViewModel viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
 
-        viewModel.getUiState().observe(this, state -> binding.status.setText(String.format(
-                Locale.getDefault(),
-               "Notes: %d%nPending sync ops: %d%nNetwork: %s",
+        viewModel.getUiState().observe(this, state -> binding.status.setText(getString(
+                R.string.status_format,
                 state.noteCount(),
+                state.syncedCount,
                 state.queueSize,
                 getString(state.isOnline ? R.string.online : R.string.offline))));
 
         binding.addNote.setOnClickListener(v -> viewModel.addTestNote());
         binding.deleteOldest.setOnClickListener(v -> viewModel.deleteOldest());
+
+        signInAnonymously();
+    }
+
+    private void signInAnonymously() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+
+        if (auth.getCurrentUser() != null) {
+            Log.i("BoardNotes", "Already signed in: " + auth.getCurrentUser().getUid());
+            return;
+        }
+
+        auth.signInAnonymously()
+                .addOnSuccessListener(result ->
+                        Log.i("BoardNotes", "Signed in: " + result.getUser().getUid()))
+                .addOnFailureListener(e ->
+                        Log.e("BoardNotes", "Sign-in failed", e));
     }
 }

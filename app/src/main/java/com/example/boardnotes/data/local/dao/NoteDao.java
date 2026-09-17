@@ -36,4 +36,7 @@ public interface NoteDao {
 
     @Query("UPDATE notes SET syncState = :state, updatedAt = :now WHERE id = :id")
     void updateState(String id, SyncState state, long now);
+
+    @Query("SELECT COUNT(*) FROM notes WHERE syncState = :state")
+    LiveData<Integer> observeCountByState(SyncState state);
 }

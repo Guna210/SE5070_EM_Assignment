@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "645355107001",
+    "project_id": "boardnotes-b5654",
+    "storage_bucket": "boardnotes-b5654.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645355107001:android:8de85877578443ff552168",
+        "android_client_info": {
+          "package_name": "com.example.boardnotes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCScL8v9hj_FMvkGxxhgfLh8q1NRm4Jks"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

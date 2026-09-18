@@ -14,6 +14,7 @@ camerax = "1.6.2"
 mlkitText = "16.0.1"
 googleServices = "4.5.0"
 firebaseBom = "34.19.0"
+exifinterface = "1.4.2"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -48,6 +49,9 @@ mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition"
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+
+# Reads EXIF orientation from a stream
+exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

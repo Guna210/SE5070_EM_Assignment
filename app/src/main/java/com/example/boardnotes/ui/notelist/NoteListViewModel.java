@@ -1,6 +1,7 @@
 package com.example.boardnotes.ui.notelist;
 
 import android.app.Application;
+import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
@@ -55,6 +56,12 @@ public class NoteListViewModel extends AndroidViewModel {
         if (!notes.isEmpty()) {
             // observeAll() is ordered createdAt DESC, so the oldest is last.
             repository.deleteNote(notes.get(notes.size() - 1));
+        }
+    }
+
+    public void importImage(Uri uri) {
+        if (uri != null) {
+            repository.createNoteFromUri(uri);
         }
     }
 }

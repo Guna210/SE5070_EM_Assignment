@@ -1,6 +1,8 @@
 package com.example.boardnotes.data.repository;
 
 import android.content.Context;
+import android.net.Uri;
+import android.util.Log;
 
 import androidx.lifecycle.LiveData;
 
@@ -13,9 +15,11 @@ import com.example.boardnotes.domain.QueueStatus;
 import com.example.boardnotes.domain.SyncOperation;
 import com.example.boardnotes.domain.SyncState;
 import com.example.boardnotes.util.AppExecutors;
+import com.example.boardnotes.util.ImageStore;
 import com.example.boardnotes.util.NetworkMonitor;
 import com.example.boardnotes.sync.SyncScheduler;
 
+import java.io.IOException;
 import java.util.List;
 
 public class NoteRepository {
@@ -67,28 +71,7 @@ public class NoteRepository {
 
     // Creates a note and queues it for upload, atomically.
     public void createNote(String imagePath) {
-        executors.diskIO().execute(() -> {
-            long now = System.currentTimeMillis();
-
-            Note note = new Note();           // id is a fresh UUID (see Note.java)
-            note.imagePath = imagePath;
-            note.createdAt = now;
-            note.updatedAt = now;
-            note.syncState = SyncState.CAPTURED;
-
-            SyncQueueEntry entry = new SyncQueueEntry();
-            entry.noteId = note.id;
-            entry.operation = SyncOperation.UPLOAD;
-            entry.status = QueueStatus.PENDING;
-            entry.createdAt = now;
-
-            // Both writes, or neither. This is the DR-27 mitigation.
-            db.runInTransaction(() -> {
-                noteDao.insert(note);
-                queueDao.enqueue(entry);
-            });
-            SyncScheduler.requestSync(appContext);
-        });
+        executors.diskIO().execute(() -> insertNoteWithUploadQueued(imagePath));
     }
 
     // Deletes a note locally and queues the remote delete, atomically.
@@ -106,5 +89,39 @@ public class NoteRepository {
             });
             SyncScheduler.requestSync(appContext);
         });
+    }
+
+    public void createNoteFromUri(Uri source) {
+        executors.diskIO().execute(() -> {
+            try {
+                String imagePath = ImageStore.saveCompressed(appContext, source);
+                insertNoteWithUploadQueued(imagePath);
+            } catch (IOException e) {
+                Log.e("BoardNotes", "Image import failed", e);
+            }
+        });
+    }
+
+    private void insertNoteWithUploadQueued(String imagePath) {
+        long now = System.currentTimeMillis();
+
+        Note note = new Note();
+        note.imagePath = imagePath;
+        note.createdAt = now;
+        note.updatedAt = now;
+        note.syncState = SyncState.CAPTURED;
+
+        SyncQueueEntry entry = new SyncQueueEntry();
+        entry.noteId = note.id;
+        entry.operation = SyncOperation.UPLOAD;
+        entry.status = QueueStatus.PENDING;
+        entry.createdAt = now;
+
+        db.runInTransaction(() -> {
+            noteDao.insert(note);
+            queueDao.enqueue(entry);
+        });
+
+        SyncScheduler.requestSync(appContext);
     }
 }

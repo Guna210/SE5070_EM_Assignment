@@ -9,14 +9,25 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.example.boardnotes.databinding.ActivityMainBinding;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
-
     private ActivityMainBinding binding;
+
+    private NoteListViewModel viewModel;
+
+    private final ActivityResultLauncher<PickVisualMediaRequest> pickImage = registerForActivityResult(
+            new ActivityResultContracts.PickVisualMedia(), uri -> {
+                if (uri != null) {
+                    viewModel.importImage(uri);
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        NoteListViewModel viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
+        viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
 
         viewModel.getUiState().observe(this, state -> binding.status.setText(getString(
                 R.string.status_format,
@@ -43,6 +54,10 @@ public class MainActivity extends AppCompatActivity {
 
         binding.addNote.setOnClickListener(v -> viewModel.addTestNote());
         binding.deleteOldest.setOnClickListener(v -> viewModel.deleteOldest());
+
+        binding.importImage.setOnClickListener(v -> pickImage.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build()));
 
         signInAnonymously();
     }

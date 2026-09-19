@@ -8,6 +8,7 @@ import androidx.room.Transaction;
 
 import com.example.boardnotes.data.local.entity.SyncQueueEntry;
 import com.example.boardnotes.domain.QueueStatus;
+import com.example.boardnotes.domain.SyncOperation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,8 +18,9 @@ public interface SyncQueueDao {
     @Insert
     void enqueue(SyncQueueEntry entry);
 
-    @Query("SELECT * FROM sync_queue WHERE status = :status ORDER BY createdAt ASC LIMIT :limit")
-    List<SyncQueueEntry> peek(QueueStatus status, int limit);
+    @Query("SELECT * FROM sync_queue WHERE status = :status AND operation IN (:operations) ORDER BY " +
+            "createdAt ASC LIMIT :limit")
+    List<SyncQueueEntry> peek(QueueStatus status, List<SyncOperation> operations, int limit);
 
     @Query("UPDATE sync_queue SET status = :status, attemptCount = attemptCount + 1, "
             + "lastAttemptAt = :now WHERE queueId IN (:ids)")
@@ -33,11 +35,14 @@ public interface SyncQueueDao {
     @Query("SELECT COUNT(*) FROM sync_queue")
     LiveData<Integer> observeQueueSize();
 
+    @Query("UPDATE sync_queue SET status = :status WHERE queueId = :queueId")
+    void release(long queueId, QueueStatus status);
+
     /* Atomically take a batch of pending work and mark it IN_FLIGHT, so two
        worker runs can never dispatch the same entry twice. */
     @Transaction
-    default List<SyncQueueEntry> claimBatch(int limit, long now) {
-        List<SyncQueueEntry> batch = peek(QueueStatus.PENDING, limit);
+    default List<SyncQueueEntry> claimBatch(List<SyncOperation> operations, int limit, long now) {
+        List<SyncQueueEntry> batch = peek(QueueStatus.PENDING, operations, limit);
         if (batch.isEmpty()) {
             return batch;
         }

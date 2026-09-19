@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.example.boardnotes.data.local.AppDatabase;
@@ -18,6 +19,7 @@ import com.example.boardnotes.util.AppExecutors;
 import com.example.boardnotes.util.ImageStore;
 import com.example.boardnotes.util.NetworkMonitor;
 import com.example.boardnotes.sync.SyncScheduler;
+import com.example.boardnotes.util.OcrEngine;
 
 import java.io.File;
 import java.io.IOException;
@@ -70,9 +72,13 @@ public class NoteRepository {
         return networkMonitor;
     }
 
+    public LiveData<Integer> observeTextCount() {
+        return noteDao.observeTextCount();
+    }
+
     // Creates a note and queues it for upload, atomically.
     public void createNote(String imagePath) {
-        executors.diskIO().execute(() -> insertNoteWithUploadQueued(imagePath));
+        executors.diskIO().execute(() -> insertNoteWithWorkQueued(imagePath, null));
     }
 
     // Deletes a note locally and queues the remote delete, atomically.
@@ -96,7 +102,7 @@ public class NoteRepository {
         executors.diskIO().execute(() -> {
             try {
                 String imagePath = ImageStore.saveCompressed(appContext, source);
-                insertNoteWithUploadQueued(imagePath);
+                insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
             } catch (IOException e) {
                 Log.e("BoardNotes", "Image import failed", e);
             }
@@ -107,7 +113,7 @@ public class NoteRepository {
         executors.diskIO().execute(() -> {
             try {
                 String imagePath = ImageStore.saveCompressed(appContext, Uri.fromFile(captured));
-                insertNoteWithUploadQueued(imagePath);
+                insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
             } catch (IOException e) {
                 Log.e("BoardNotes", "Capture import failed", e);
             } finally {
@@ -118,24 +124,33 @@ public class NoteRepository {
         });
     }
 
-    private void insertNoteWithUploadQueued(String imagePath) {
+    private void insertNoteWithWorkQueued(String imagePath, @Nullable String ocrText) {
         long now = System.currentTimeMillis();
 
         Note note = new Note();
         note.imagePath = imagePath;
         note.createdAt = now;
         note.updatedAt = now;
-        note.syncState = SyncState.CAPTURED;
+        note.ocrText = ocrText;
+        note.syncState = ocrText == null ? SyncState.CAPTURED : SyncState.OCR_DONE;
 
-        SyncQueueEntry entry = new SyncQueueEntry();
-        entry.noteId = note.id;
-        entry.operation = SyncOperation.UPLOAD;
-        entry.status = QueueStatus.PENDING;
-        entry.createdAt = now;
+        SyncQueueEntry upload = new SyncQueueEntry();
+        upload.noteId = note.id;
+        upload.operation = SyncOperation.UPLOAD;
+        upload.status = QueueStatus.PENDING;
+        upload.createdAt = now;
+
+        // Every note is enriched.
+        SyncQueueEntry enrich = new SyncQueueEntry();
+        enrich.noteId = note.id;
+        enrich.operation = SyncOperation.ENRICH;
+        enrich.status = QueueStatus.PENDING;
+        enrich.createdAt = now;
 
         db.runInTransaction(() -> {
             noteDao.insert(note);
-            queueDao.enqueue(entry);
+            queueDao.enqueue(upload);
+            queueDao.enqueue(enrich);
         });
 
         SyncScheduler.requestSync(appContext);

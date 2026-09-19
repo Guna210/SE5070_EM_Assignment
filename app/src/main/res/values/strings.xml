@@ -5,7 +5,7 @@
     <string name="delete_oldest">Delete oldest note</string>
     <string name="online">Online</string>
     <string name="offline">Offline</string>
-    <string name="status_format">Notes: %1$d\nSynced: %2$d\nPending sync ops: %3$d\nNetwork: %4$s</string>
+    <string name="status_format">Notes: %1$d\nWith text: %2$d\nSynced: %3$d\nPending sync ops: %4$d\nNetwork: %5$s</string>
     <string name="import_image">Import from gallery</string>
     <string name="shutter">Capture</string>
     <string name="capture_image">Capture from camera</string>

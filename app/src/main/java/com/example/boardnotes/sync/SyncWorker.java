@@ -14,8 +14,10 @@ import com.example.boardnotes.data.local.entity.SyncQueueEntry;
 import com.example.boardnotes.data.remote.FirestoreSyncService;
 import com.example.boardnotes.data.remote.RemoteSyncService;
 import com.example.boardnotes.domain.QueueStatus;
+import com.example.boardnotes.domain.SyncOperation;
 import com.example.boardnotes.domain.SyncState;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class SyncWorker extends Worker {
@@ -23,6 +25,9 @@ public class SyncWorker extends Worker {
 
     // After this many failures an entry is parked instead of retried forever.
     private static final int MAX_ATTEMPTS = 5;
+
+    private static final List<SyncOperation> DISPATCHABLE =
+            Arrays.asList(SyncOperation.UPLOAD, SyncOperation.DELETE);
 
     public SyncWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -37,7 +42,7 @@ public class SyncWorker extends Worker {
 
         RemoteSyncService remote = new FirestoreSyncService();
 
-        List<SyncQueueEntry> batch = queueDao.claimBatch(BATCH_SIZE, System.currentTimeMillis());
+        List<SyncQueueEntry> batch = queueDao.claimBatch(DISPATCHABLE, BATCH_SIZE, System.currentTimeMillis());
         if (batch.isEmpty()) {
             return Result.success();
         }
@@ -46,9 +51,14 @@ public class SyncWorker extends Worker {
 
         for (SyncQueueEntry entry : batch) {
             try {
-                dispatch(entry, remote, noteDao);
-                // Completed work is DELETED, not flagged - the queue stays small.
-                queueDao.remove(entry.queueId);
+                if (dispatch(entry, remote, noteDao)) {
+                    // Completed work is DELETED, not flagged - the queue stays small.
+                    queueDao.remove(entry.queueId);
+                } else {
+                    // Claimed but not dispatchable yet. Hand it back without counting
+                    // an attempt against it.
+                    queueDao.release(entry.queueId, QueueStatus.PENDING);
+                }
             } catch (Exception e) {
                 String message = e.getMessage() == null ? e.toString() : e.getMessage();
 
@@ -63,11 +73,12 @@ public class SyncWorker extends Worker {
             }
         }
 
+        boolean batchWasFull = batch.size() == BATCH_SIZE;
         // Result.retry() asks WorkManager to run again with exponential backoff.
-        return anyRetryable ? Result.retry() : Result.success();
+        return (anyRetryable || batchWasFull) ? Result.retry() : Result.success();
     }
 
-    private void dispatch(SyncQueueEntry entry, RemoteSyncService remote, NoteDao noteDao)
+    private boolean dispatch(SyncQueueEntry entry, RemoteSyncService remote, NoteDao noteDao)
             throws Exception {
         switch (entry.operation) {
             case UPLOAD:
@@ -78,15 +89,16 @@ public class SyncWorker extends Worker {
                 }
                 // A missing note means it was deleted before its upload ran. Entries are
                 // processed oldest first, so the DELETE that replaced it is next in line.
-                break;
+                return true;
 
             case DELETE:
                 remote.delete(entry.noteId);
-                break;
+                return true;
 
             case ENRICH:
-                // Gemini via Cloud Functions in Firebase. Nothing enqueues ENRICH yet.
-                break;
+                // Gemini via Cloud Functions in Firebase.
+                return false;
         }
+        return false;
     }
 }

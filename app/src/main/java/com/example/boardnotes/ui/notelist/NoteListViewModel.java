@@ -34,6 +34,9 @@ public class NoteListViewModel extends AndroidViewModel {
 
         uiState.addSource(repository.observeSyncedCount(), synced ->
                 uiState.setValue(current().withSyncedCount(synced == null ? 0 : synced)));
+
+        uiState.addSource(repository.observeTextCount(), text ->
+                uiState.setValue(current().withTextCount(text == null ? 0 : text)));
     }
 
     private NoteListUiState current() {

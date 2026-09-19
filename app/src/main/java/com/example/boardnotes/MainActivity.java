@@ -63,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         viewModel.getUiState().observe(this, state -> binding.status.setText(getString(
                 R.string.status_format,
                 state.noteCount(),
+                state.textCount,
                 state.syncedCount,
                 state.queueSize,
                 getString(state.isOnline ? R.string.online : R.string.offline))));

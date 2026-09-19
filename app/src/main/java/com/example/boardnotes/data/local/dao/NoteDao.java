@@ -39,4 +39,7 @@ public interface NoteDao {
 
     @Query("SELECT COUNT(*) FROM notes WHERE syncState = :state")
     LiveData<Integer> observeCountByState(SyncState state);
+
+    @Query("SELECT COUNT(*) FROM notes WHERE ocrText IS NOT NULL AND TRIM(ocrText) != ''")
+    LiveData<Integer> observeTextCount();
 }

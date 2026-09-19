@@ -1,7 +1,10 @@
 package com.example.boardnotes.data.repository;
 
 import android.content.Context;
+import android.net.Uri;
+import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.example.boardnotes.data.local.AppDatabase;
@@ -13,9 +16,13 @@ import com.example.boardnotes.domain.QueueStatus;
 import com.example.boardnotes.domain.SyncOperation;
 import com.example.boardnotes.domain.SyncState;
 import com.example.boardnotes.util.AppExecutors;
+import com.example.boardnotes.util.ImageStore;
 import com.example.boardnotes.util.NetworkMonitor;
 import com.example.boardnotes.sync.SyncScheduler;
+import com.example.boardnotes.util.OcrEngine;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 public class NoteRepository {
@@ -65,30 +72,13 @@ public class NoteRepository {
         return networkMonitor;
     }
 
+    public LiveData<Integer> observeTextCount() {
+        return noteDao.observeTextCount();
+    }
+
     // Creates a note and queues it for upload, atomically.
     public void createNote(String imagePath) {
-        executors.diskIO().execute(() -> {
-            long now = System.currentTimeMillis();
-
-            Note note = new Note();           // id is a fresh UUID (see Note.java)
-            note.imagePath = imagePath;
-            note.createdAt = now;
-            note.updatedAt = now;
-            note.syncState = SyncState.CAPTURED;
-
-            SyncQueueEntry entry = new SyncQueueEntry();
-            entry.noteId = note.id;
-            entry.operation = SyncOperation.UPLOAD;
-            entry.status = QueueStatus.PENDING;
-            entry.createdAt = now;
-
-            // Both writes, or neither. This is the DR-27 mitigation.
-            db.runInTransaction(() -> {
-                noteDao.insert(note);
-                queueDao.enqueue(entry);
-            });
-            SyncScheduler.requestSync(appContext);
-        });
+        executors.diskIO().execute(() -> insertNoteWithWorkQueued(imagePath, null));
     }
 
     // Deletes a note locally and queues the remote delete, atomically.
@@ -106,5 +96,63 @@ public class NoteRepository {
             });
             SyncScheduler.requestSync(appContext);
         });
+    }
+
+    public void createNoteFromUri(Uri source) {
+        executors.diskIO().execute(() -> {
+            try {
+                String imagePath = ImageStore.saveCompressed(appContext, source);
+                insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
+            } catch (IOException e) {
+                Log.e("BoardNotes", "Image import failed", e);
+            }
+        });
+    }
+
+    public void createNoteFromCapture(File captured) {
+        executors.diskIO().execute(() -> {
+            try {
+                String imagePath = ImageStore.saveCompressed(appContext, Uri.fromFile(captured));
+                insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
+            } catch (IOException e) {
+                Log.e("BoardNotes", "Capture import failed", e);
+            } finally {
+                if (captured.exists() && !captured.delete()) {
+                    Log.w("BoardNotes", "Temporary capture not deleted: " + captured);
+                }
+            }
+        });
+    }
+
+    private void insertNoteWithWorkQueued(String imagePath, @Nullable String ocrText) {
+        long now = System.currentTimeMillis();
+
+        Note note = new Note();
+        note.imagePath = imagePath;
+        note.createdAt = now;
+        note.updatedAt = now;
+        note.ocrText = ocrText;
+        note.syncState = ocrText == null ? SyncState.CAPTURED : SyncState.OCR_DONE;
+
+        SyncQueueEntry upload = new SyncQueueEntry();
+        upload.noteId = note.id;
+        upload.operation = SyncOperation.UPLOAD;
+        upload.status = QueueStatus.PENDING;
+        upload.createdAt = now;
+
+        // Every note is enriched.
+        SyncQueueEntry enrich = new SyncQueueEntry();
+        enrich.noteId = note.id;
+        enrich.operation = SyncOperation.ENRICH;
+        enrich.status = QueueStatus.PENDING;
+        enrich.createdAt = now;
+
+        db.runInTransaction(() -> {
+            noteDao.insert(note);
+            queueDao.enqueue(upload);
+            queueDao.enqueue(enrich);
+        });
+
+        SyncScheduler.requestSync(appContext);
     }
 }

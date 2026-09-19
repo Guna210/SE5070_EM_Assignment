@@ -118,6 +118,10 @@ public final class ImageStore {
     }
 
     private static long sourceSize(Context context, Uri uri) {
+        if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+            long length = new File(uri.getPath()).length();
+            return length > 0 ? length : -1;
+        }
         try (Cursor cursor = context.getContentResolver()
                 .query(uri, null, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {

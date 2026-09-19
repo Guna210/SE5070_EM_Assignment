@@ -19,6 +19,7 @@ import com.example.boardnotes.util.ImageStore;
 import com.example.boardnotes.util.NetworkMonitor;
 import com.example.boardnotes.sync.SyncScheduler;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -98,6 +99,21 @@ public class NoteRepository {
                 insertNoteWithUploadQueued(imagePath);
             } catch (IOException e) {
                 Log.e("BoardNotes", "Image import failed", e);
+            }
+        });
+    }
+
+    public void createNoteFromCapture(File captured) {
+        executors.diskIO().execute(() -> {
+            try {
+                String imagePath = ImageStore.saveCompressed(appContext, Uri.fromFile(captured));
+                insertNoteWithUploadQueued(imagePath);
+            } catch (IOException e) {
+                Log.e("BoardNotes", "Capture import failed", e);
+            } finally {
+                if (captured.exists() && !captured.delete()) {
+                    Log.w("BoardNotes", "Temporary capture not deleted: " + captured);
+                }
             }
         });
     }

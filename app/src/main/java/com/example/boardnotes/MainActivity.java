@@ -21,7 +21,16 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import com.example.boardnotes.databinding.ActivityMainBinding;
 import com.example.boardnotes.ui.capture.CaptureActivity;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.firebase.ai.FirebaseAI;
+import com.google.firebase.ai.GenerativeModel;
+import com.google.firebase.ai.java.GenerativeModelFutures;
+import com.google.firebase.ai.type.Content;
+import com.google.firebase.ai.type.GenerateContentResponse;
 import com.google.firebase.auth.FirebaseAuth;
+
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
@@ -92,17 +101,49 @@ public class MainActivity extends AppCompatActivity {
 
         if (auth.getCurrentUser() != null) {
             Log.i("BoardNotes", "Already signed in: " + auth.getCurrentUser().getUid());
+            pingGemini();
             return;
         }
 
         auth.signInAnonymously()
-                .addOnSuccessListener(result ->
-                        Log.i("BoardNotes", "Signed in: " + result.getUser().getUid()))
+                .addOnSuccessListener(result -> {
+                        Log.i("BoardNotes", "Signed in: " + result.getUser().getUid());
+                        pingGemini();
+                })
                 .addOnFailureListener(e ->
                         Log.e("BoardNotes", "Sign-in failed", e));
     }
 
     private void openCamera() {
         startActivity(new Intent(this, CaptureActivity.class));
+    }
+
+    private void pingGemini() {
+        GenerativeModel model = FirebaseAI.getInstance()
+                .generativeModel("gemini-3.8-flash");
+        GenerativeModelFutures futures = GenerativeModelFutures.from(model);
+
+        Content prompt = new Content.Builder()
+                .addText("Reply with exactly one word: ready")
+                .build();
+
+        long start = System.currentTimeMillis();
+
+        Futures.addCallback(
+                futures.generateContent(prompt),
+                new FutureCallback<GenerateContentResponse>() {
+                    @Override
+                    public void onSuccess(GenerateContentResponse result) {
+                        Log.i("BoardNotes", "Gemini OK in "
+                                + (System.currentTimeMillis() - start) + " ms: "
+                                + result.getText());
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        Log.e("BoardNotes", "Gemini failed", t);
+                    }
+                },
+                Executors.newSingleThreadExecutor());
     }
 }

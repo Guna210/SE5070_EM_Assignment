@@ -11,7 +11,7 @@ public class BoardNotesApp extends Application {
         super.onCreate();
 
         FirebaseApp.initializeApp(this);
-        
+
         FirebaseAppCheck.getInstance()
                 .installAppCheckProviderFactory(AppCheckSetup.factory());
     }

@@ -60,13 +60,15 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
 
-        viewModel.getUiState().observe(this, state -> binding.status.setText(getString(
+        viewModel.getUiState().observe(this, state -> {binding.status.setText(getString(
                 R.string.status_format,
                 state.noteCount(),
                 state.textCount,
                 state.syncedCount,
                 state.queueSize,
-                getString(state.isOnline ? R.string.online : R.string.offline))));
+                getString(state.isOnline ? R.string.online : R.string.offline)));
+            binding.diagram.setDiagramJson(state.latestDiagramJson);
+        });
 
         binding.addNote.setOnClickListener(v -> viewModel.addTestNote());
         binding.deleteOldest.setOnClickListener(v -> viewModel.deleteOldest());

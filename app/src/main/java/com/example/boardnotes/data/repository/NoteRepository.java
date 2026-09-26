@@ -8,8 +8,10 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.example.boardnotes.data.local.AppDatabase;
+import com.example.boardnotes.data.local.dao.DiagramDao;
 import com.example.boardnotes.data.local.dao.NoteDao;
 import com.example.boardnotes.data.local.dao.SyncQueueDao;
+import com.example.boardnotes.data.local.entity.Diagram;
 import com.example.boardnotes.data.local.entity.Note;
 import com.example.boardnotes.data.local.entity.SyncQueueEntry;
 import com.example.boardnotes.domain.QueueStatus;
@@ -34,12 +36,14 @@ public class NoteRepository {
     private final AppExecutors executors;
     private final NetworkMonitor networkMonitor;
     private final Context appContext;
+    private final DiagramDao diagramDao;
 
     private NoteRepository(Context context) {
         appContext = context.getApplicationContext();
         db = AppDatabase.getInstance(context);
         noteDao = db.noteDao();
         queueDao = db.syncQueueDao();
+        diagramDao = db.diagramDao();
         executors = AppExecutors.getInstance();
         networkMonitor = NetworkMonitor.getInstance(context);
     }
@@ -74,6 +78,10 @@ public class NoteRepository {
 
     public LiveData<Integer> observeTextCount() {
         return noteDao.observeTextCount();
+    }
+
+    public LiveData<Diagram> observeLatestDiagram() {
+        return diagramDao.observeLatest();
     }
 
     // Creates a note and queues it for upload, atomically.

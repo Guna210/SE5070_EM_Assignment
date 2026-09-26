@@ -26,9 +26,8 @@ public final class SyncScheduler {
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build();
-
-        // COALESCE: adding ten notes quickly produces one sync run, not ten.
+        
         WorkManager.getInstance(context)
-                .enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.KEEP, request);
+                .enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.APPEND_OR_REPLACE, request);
     }
 }

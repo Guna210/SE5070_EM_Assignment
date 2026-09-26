@@ -42,4 +42,9 @@ public interface NoteDao {
 
     @Query("SELECT COUNT(*) FROM notes WHERE ocrText IS NOT NULL AND TRIM(ocrText) != ''")
     LiveData<Integer> observeTextCount();
+
+    // Returns how many rows changed. Zero means the note no longer exists.
+    @Query("UPDATE notes SET title = :title, category = :category, syncState = :state, "
+            + "updatedAt = :now WHERE id = :id")
+    int applyEnrichment(String id, String title, String category, SyncState state, long now);
 }

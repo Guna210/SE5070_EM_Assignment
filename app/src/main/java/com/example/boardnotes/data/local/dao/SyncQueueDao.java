@@ -35,8 +35,15 @@ public interface SyncQueueDao {
     @Query("SELECT COUNT(*) FROM sync_queue")
     LiveData<Integer> observeQueueSize();
 
-    @Query("UPDATE sync_queue SET status = :status WHERE queueId = :queueId")
+    @Query("UPDATE sync_queue SET status = :status, attemptCount = CASE WHEN attemptCount > 0 THEN attemptCount - 1 ELSE 0 END "
+            + "WHERE queueId = :queueId")
     void release(long queueId, QueueStatus status);
+
+    @Query("UPDATE sync_queue SET status = :pending WHERE status = :inFlight AND lastAttemptAt < :cutoff")
+    int reclaimStale(QueueStatus pending, QueueStatus inFlight, long cutoff);
+
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status = :status AND operation IN (:operations)")
+    int countPending(QueueStatus status, List<SyncOperation> operations);
 
     /* Atomically take a batch of pending work and mark it IN_FLIGHT, so two
        worker runs can never dispatch the same entry twice. */
@@ -51,6 +58,10 @@ public interface SyncQueueDao {
             ids.add(e.queueId);
         }
         mark(ids, QueueStatus.IN_FLIGHT, now);
+        for (SyncQueueEntry e : batch) {
+            e.attemptCount++;
+            e.lastAttemptAt = now;
+        }
         return batch;
     }
 }

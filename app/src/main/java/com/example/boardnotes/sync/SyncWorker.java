@@ -37,6 +37,9 @@ public class SyncWorker extends Worker {
     private static final List<SyncOperation> DISPATCHABLE =
             Arrays.asList(SyncOperation.UPLOAD, SyncOperation.DELETE, SyncOperation.ENRICH);
 
+    private static final List<SyncOperation> CHEAP =
+            Arrays.asList(SyncOperation.UPLOAD, SyncOperation.DELETE);
+
     public SyncWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
     }
@@ -67,14 +70,12 @@ public class SyncWorker extends Worker {
         boolean anyRetryable = false;
         boolean quotaGone = false;
         int enrichThisRun = 0;
-        boolean deferredEnrich = false;
 
         for (SyncQueueEntry entry : batch) {
             boolean isEnrich = entry.operation == SyncOperation.ENRICH;
             if (isEnrich && (quotaGone || enrichThisRun >= MAX_ENRICH_PER_RUN)) {
                 // Hand it back untouched: no request spent, no attempt counted.
                 queueDao.release(entry.queueId, QueueStatus.PENDING);
-                deferredEnrich = true;
                 continue;
             }
             if (isEnrich) {
@@ -93,7 +94,7 @@ public class SyncWorker extends Worker {
                 String message = e.getMessage() == null ? e.toString() : e.getMessage();
 
                 Log.w("BoardNotes", "Queue entry " + entry.queueId + " (" + entry.operation
-                        + ") failed, attempt " + (entry.attemptCount + 1) + ": " + message, e);
+                        + ") failed, attempt " + (entry.attemptCount) + ": " + message, e);
 
                 EnrichmentException.Kind kind = e instanceof EnrichmentException
                         ? ((EnrichmentException) e).kind()
@@ -103,14 +104,19 @@ public class SyncWorker extends Worker {
                     // The allowance is gone. Every remaining ENRICH would fail the same
                     quotaGone = true;
                     queueDao.release(entry.queueId, QueueStatus.PENDING);
-                    deferredEnrich = true;
                     continue;
                 }
 
                 int limit = isEnrich ? MAX_ENRICH_ATTEMPTS : MAX_ATTEMPTS;
 
                 if (kind == EnrichmentException.Kind.PERMANENT || entry.attemptCount >= limit) {
+                    // Either it can never succeed, or it has had its chances.
                     queueDao.markFailed(entry.queueId, QueueStatus.FAILED, message);
+
+                    if (entry.operation == SyncOperation.UPLOAD) {
+                        noteDao.updateState(entry.noteId, SyncState.FAILED,
+                                System.currentTimeMillis());
+                    }
                 } else {
                     queueDao.markFailed(entry.queueId, QueueStatus.PENDING, message);
                     if (!isEnrich) {
@@ -121,10 +127,10 @@ public class SyncWorker extends Worker {
             }
         }
 
-        boolean batchWasFull = batch.size() == BATCH_SIZE;
-        boolean moreWorkLikely = batchWasFull && !deferredEnrich;
+        // Ask the queue whether cheap work is still waiting. Enrichment is purposefully excluded.
+        boolean moreCheapWork = queueDao.countPending(QueueStatus.PENDING, CHEAP) > 0;
         // Result.retry() asks WorkManager to run again with exponential backoff.
-        return (anyRetryable || moreWorkLikely) ? Result.retry() : Result.success();
+        return (anyRetryable || moreCheapWork) ? Result.retry() : Result.success();
     }
 
     private boolean dispatch(SyncQueueEntry entry, RemoteSyncService remote, EnrichmentService enrichment,

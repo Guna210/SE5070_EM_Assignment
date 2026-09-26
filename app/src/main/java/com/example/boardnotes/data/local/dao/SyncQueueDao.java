@@ -42,6 +42,9 @@ public interface SyncQueueDao {
     @Query("UPDATE sync_queue SET status = :pending WHERE status = :inFlight AND lastAttemptAt < :cutoff")
     int reclaimStale(QueueStatus pending, QueueStatus inFlight, long cutoff);
 
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status = :status AND operation IN (:operations)")
+    int countPending(QueueStatus status, List<SyncOperation> operations);
+
     /* Atomically take a batch of pending work and mark it IN_FLIGHT, so two
        worker runs can never dispatch the same entry twice. */
     @Transaction
@@ -55,6 +58,10 @@ public interface SyncQueueDao {
             ids.add(e.queueId);
         }
         mark(ids, QueueStatus.IN_FLIGHT, now);
+        for (SyncQueueEntry e : batch) {
+            e.attemptCount++;
+            e.lastAttemptAt = now;
+        }
         return batch;
     }
 }

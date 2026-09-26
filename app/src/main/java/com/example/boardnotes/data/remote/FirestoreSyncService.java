@@ -1,5 +1,7 @@
 package com.example.boardnotes.data.remote;
 
+import androidx.annotation.Nullable;
+
 import com.example.boardnotes.data.local.entity.Note;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
@@ -38,7 +40,7 @@ public class FirestoreSyncService implements RemoteSyncService {
     }
 
     @Override
-    public void upload(Note note) throws Exception {
+    public void upload(Note note, @Nullable String diagramJson) throws Exception {
         String uid = requireUid();
 
         Map<String, Object> document = new HashMap<>();
@@ -48,6 +50,7 @@ public class FirestoreSyncService implements RemoteSyncService {
         document.put("ocrText", note.ocrText);
         document.put("title", note.title);
         document.put("category", note.category);
+        document.put("diagramJson", diagramJson);
 
         Tasks.await(
                 firestore.collection("users").document(uid)

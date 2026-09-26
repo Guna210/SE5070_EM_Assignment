@@ -117,7 +117,6 @@ public class AiLogicEnrichmentService implements EnrichmentService {
                 throw new EnrichmentException(
                         "Model returned no text", null, EnrichmentException.Kind.TRANSIENT);
             }
-            Log.d(TAG, "Raw model JSON: " + json);
             EnrichmentResult result = parse(json);
             Log.i(TAG, "Enriched " + note.id.substring(0, 8) + " in " + elapsed + " ms: " + result);
             return result;

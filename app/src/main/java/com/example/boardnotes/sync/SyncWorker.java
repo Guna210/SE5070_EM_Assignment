@@ -12,6 +12,7 @@ import com.example.boardnotes.data.local.dao.NoteDao;
 import com.example.boardnotes.data.local.dao.SyncQueueDao;
 import com.example.boardnotes.data.local.entity.Note;
 import com.example.boardnotes.data.local.entity.SyncQueueEntry;
+import com.example.boardnotes.data.local.entity.Diagram;
 import com.example.boardnotes.data.remote.AiLogicEnrichmentService;
 import com.example.boardnotes.data.remote.EnrichmentException;
 import com.example.boardnotes.data.remote.EnrichmentService;
@@ -82,7 +83,7 @@ public class SyncWorker extends Worker {
                 enrichThisRun++;
             }
             try {
-                if (dispatch(entry, remote, enrichment, noteDao)) {
+                if (dispatch(entry, remote, enrichment, db)) {
                     // Completed work is DELETED, not flagged - the queue stays small.
                     queueDao.remove(entry.queueId);
                 } else {
@@ -133,14 +134,16 @@ public class SyncWorker extends Worker {
         return (anyRetryable || moreCheapWork) ? Result.retry() : Result.success();
     }
 
-    private boolean dispatch(SyncQueueEntry entry, RemoteSyncService remote, EnrichmentService enrichment,
-                             NoteDao noteDao)
-            throws Exception {
+    private boolean dispatch(SyncQueueEntry entry, RemoteSyncService remote,
+                             EnrichmentService enrichment, AppDatabase db) throws Exception {
+        NoteDao noteDao = db.noteDao();
+
         switch (entry.operation) {
             case UPLOAD:
                 Note note = noteDao.findById(entry.noteId);
                 if (note != null) {
-                    remote.upload(note);
+                    Diagram diagram = db.diagramDao().findForNote(note.id);
+                    remote.upload(note, diagram == null ? null : diagram.diagramJson);
                     noteDao.updateState(note.id, SyncState.SYNCED, System.currentTimeMillis());
                 }
                 // A missing note means it was deleted before its upload ran. Entries are
@@ -159,10 +162,44 @@ public class SyncWorker extends Worker {
                     return true;
                 }
                 EnrichmentResult result = enrichment.enrich(toEnrich);
-                Log.i("BoardNotes", "ENRICH result for "
-                        + toEnrich.id.substring(0, 8) + ": " + result);
+                saveEnrichment(db, toEnrich.id, result);
                 return true;
         }
         return false;
+    }
+
+    private void saveEnrichment(AppDatabase db, String noteId, EnrichmentResult result) {
+        long now = System.currentTimeMillis();
+
+        SyncQueueEntry upload = new SyncQueueEntry();
+        upload.noteId = noteId;
+        upload.operation = SyncOperation.UPLOAD;
+        upload.status = QueueStatus.PENDING;
+        upload.createdAt = now;
+
+        db.runInTransaction(() -> {
+            int updated = db.noteDao().applyEnrichment(
+                    noteId, result.title, result.category, SyncState.ENRICHED, now);
+            if (updated == 0) {
+                // Deleted while Gemini was answering. There is nothing to attach the result to
+                Log.i("BoardNotes", "Note " + noteId.substring(0, 8)
+                        + " was deleted during enrichment; result discarded");
+                return;
+            }
+
+            if (result.hasDiagram()) {
+                Diagram diagram = new Diagram();
+                diagram.noteId = noteId;
+                diagram.diagramJson = result.diagramJson;
+                diagram.updatedAt = now;
+                db.diagramDao().upsert(diagram);
+            }
+
+            // The note now differs from its server copy. Queue the upload in the same transaction
+            db.syncQueueDao().enqueue(upload);
+
+            Log.i("BoardNotes", "Saved enrichment for " + noteId.substring(0, 8)
+                    + (result.hasDiagram() ? " with a diagram" : ", no diagram"));
+        });
     }
 }

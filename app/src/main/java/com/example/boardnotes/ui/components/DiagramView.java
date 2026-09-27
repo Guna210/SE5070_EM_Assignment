@@ -19,12 +19,14 @@ import com.example.boardnotes.domain.DiagramModel;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class DiagramView extends View {
-    private static final int COLUMNS = 3;
+    private static final int FALLBACK_COLUMNS = 3;
 
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -40,6 +42,8 @@ public class DiagramView extends View {
     private List<DiagramModel.Node> nodes = Collections.emptyList();
     private List<DiagramModel.Edge> edges = Collections.emptyList();
     private final Map<String, RectF> boxes = new HashMap<>();
+    private float contentWidth;
+    private float contentHeight;
 
     public DiagramView(@NonNull Context context) {
         this(context, null);
@@ -77,17 +81,46 @@ public class DiagramView extends View {
 
     private void placeBoxes() {
         boxes.clear();
+        contentWidth = 0;
+        contentHeight = 0;
+
+        boolean hasPositions = !nodes.isEmpty();
+        for (DiagramModel.Node node : nodes) {
+            if (node.row < 0 || node.col < 0) {
+                hasPositions = false;
+            }
+        }
+
         float nodeHeight = textPaint.getFontSpacing() + layoutSpacing;
+        Set<String> taken = new HashSet<>();
         for (int i = 0; i < nodes.size(); i++) {
-            float left = (i % COLUMNS) * (nodeWidth + layoutSpacing);
-            float top = (i / COLUMNS) * (nodeHeight + layoutSpacing * 2);
-            boxes.put(nodes.get(i).id, new RectF(left, top, left + nodeWidth, top + nodeHeight));
+            DiagramModel.Node node = nodes.get(i);
+            int row = hasPositions ? node.row : i / FALLBACK_COLUMNS;
+            int col = hasPositions ? node.col : i % FALLBACK_COLUMNS;
+            while (!taken.add(row + "," + col)) {
+                col++;
+            }
+            float left = col * (nodeWidth + layoutSpacing);
+            float top = row * (nodeHeight + layoutSpacing * 2);
+            boxes.put(node.id, new RectF(left, top, left + nodeWidth, top + nodeHeight));
+            contentWidth = Math.max(contentWidth, left + nodeWidth);
+            contentHeight = Math.max(contentHeight, top + nodeHeight);
         }
     }
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
+        if (boxes.isEmpty() || getWidth() == 0 || getHeight() == 0) {
+            return;
+        }
+
+        float scale = Math.min(1f, Math.min(getWidth() / contentWidth,
+                getHeight() / contentHeight));
+        canvas.save();
+        canvas.translate((getWidth() - contentWidth * scale) / 2,
+                (getHeight() - contentHeight * scale) / 2);
+        canvas.scale(scale, scale);
 
         for (DiagramModel.Edge edge : edges) {
             if (connect(boxes.get(edge.from), boxes.get(edge.to))) {
@@ -100,6 +133,7 @@ public class DiagramView extends View {
             float baseline = box.centerY() - (textPaint.ascent() + textPaint.descent()) / 2;
             canvas.drawText(node.label, box.centerX(), baseline, textPaint);
         }
+        canvas.restore();
     }
 
     private boolean connect(RectF from, RectF to) {

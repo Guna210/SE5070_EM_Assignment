@@ -47,6 +47,9 @@ public class AiLogicEnrichmentService implements EnrichmentService {
                     + "reaction schemes - in a reaction scheme each distinct compound or species is a "
                     + "node, and each reaction arrow is an edge from reactant to product labelled with "
                     + "its reagents and conditions. Node ids must be short and unique. "
+                    + "Give every node a row and col for where it sits on the board, as a small "
+                    + "grid: row 0 is the top and col 0 the left; boxes side by side share a row, "
+                    + "boxes stacked vertically share a col. No two nodes may share both. "
                     + "Include EVERY connection that is visible: where several parts play the same "
                     + "role, repeat the edges for each of them instead of showing one example. "
                     + "If the page is only prose, lists, or statements with no arrows or connections "
@@ -57,6 +60,8 @@ public class AiLogicEnrichmentService implements EnrichmentService {
         Map<String, Schema> node = new LinkedHashMap<>();
         node.put("id", Schema.str());
         node.put("label", Schema.str());
+        node.put("row", Schema.numInt());
+        node.put("col", Schema.numInt());
 
         Map<String, Schema> edge = new LinkedHashMap<>();
         edge.put("from", Schema.str());

@@ -16,10 +16,14 @@ public final class DiagramModel {
     public static final class Node {
         public final String id;
         public final String label;
+        public final int row;
+        public final int col;
 
-        Node(String id, String label) {
+        Node(String id, String label, int row, int col) {
             this.id = id;
             this.label = label;
+            this.row = row;
+            this.col = col;
         }
     }
 
@@ -38,11 +42,11 @@ public final class DiagramModel {
     private final Map<String, Node> nodes = new LinkedHashMap<>();
     private final List<Edge> edges = new ArrayList<>();
 
-    public void addNode(String id, String label) {
+    public void addNode(String id, String label, int row, int col) {
         if (id == null || id.isEmpty() || nodes.containsKey(id)) {
             return;
         }
-        nodes.put(id, new Node(id, label == null ? "" : label));
+        nodes.put(id, new Node(id, label == null ? "" : label, row, col));
     }
 
     public boolean addEdge(String from, String to, String label) {
@@ -75,7 +79,8 @@ public final class DiagramModel {
                 for (int i = 0; i < nodeArray.length(); i++) {
                     JSONObject node = nodeArray.optJSONObject(i);
                     if (node != null) {
-                        model.addNode(node.optString("id"), node.optString("label"));
+                        model.addNode(node.optString("id"), node.optString("label"),
+                                node.optInt("row", -1), node.optInt("col", -1));
                     }
                 }
             }

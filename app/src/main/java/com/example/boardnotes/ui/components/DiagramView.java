@@ -4,7 +4,10 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Region;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
@@ -17,6 +20,7 @@ import androidx.annotation.Px;
 import com.example.boardnotes.R;
 import com.example.boardnotes.domain.DiagramModel;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,10 +31,17 @@ import java.util.Set;
 
 public class DiagramView extends View {
     private static final int FALLBACK_COLUMNS = 3;
+    private static final int MAX_LABEL_LINES = 3;
+    private static final double ARROW_SPREAD = Math.toRadians(25);
 
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint arrowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint edgeLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path arrowPath = new Path();
     private final float[] line = new float[4];
+    private final float arrowLength;
+    private final float labelGap;
 
     @ColorInt private int inkColor;
     private float nodeCornerRadius;
@@ -42,6 +53,7 @@ public class DiagramView extends View {
     private List<DiagramModel.Node> nodes = Collections.emptyList();
     private List<DiagramModel.Edge> edges = Collections.emptyList();
     private final Map<String, RectF> boxes = new HashMap<>();
+    private final Map<String, List<String>> labelLines = new HashMap<>();
     private float contentWidth;
     private float contentHeight;
 
@@ -52,6 +64,8 @@ public class DiagramView extends View {
     public DiagramView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
 
+        arrowLength = dp(8);
+        labelGap = dp(4);
         TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.DiagramView);
         try {
             inkColor = a.getColor(R.styleable.DiagramView_inkColor, 0xFF000000);
@@ -83,6 +97,7 @@ public class DiagramView extends View {
         boxes.clear();
         contentWidth = 0;
         contentHeight = 0;
+        labelLines.clear();
 
         boolean hasPositions = !nodes.isEmpty();
         for (DiagramModel.Node node : nodes) {
@@ -91,7 +106,16 @@ public class DiagramView extends View {
             }
         }
 
-        float nodeHeight = textPaint.getFontSpacing() + layoutSpacing;
+        float padding = layoutSpacing / 2;
+        int mostLines = 1;
+        for (DiagramModel.Node node : nodes) {
+            List<String> lines = wrap(node.label, nodeWidth - 2 * padding);
+            labelLines.put(node.id, lines);
+            mostLines = Math.max(mostLines, lines.size());
+        }
+        float nodeHeight = mostLines * textPaint.getFontSpacing() + 2 * padding;
+
+        float columnGap = layoutSpacing * 4;
         Set<String> taken = new HashSet<>();
         for (int i = 0; i < nodes.size(); i++) {
             DiagramModel.Node node = nodes.get(i);
@@ -100,7 +124,7 @@ public class DiagramView extends View {
             while (!taken.add(row + "," + col)) {
                 col++;
             }
-            float left = col * (nodeWidth + layoutSpacing);
+            float left = col * (nodeWidth + columnGap);
             float top = row * (nodeHeight + layoutSpacing * 2);
             boxes.put(node.id, new RectF(left, top, left + nodeWidth, top + nodeHeight));
             contentWidth = Math.max(contentWidth, left + nodeWidth);
@@ -122,16 +146,22 @@ public class DiagramView extends View {
                 (getHeight() - contentHeight * scale) / 2);
         canvas.scale(scale, scale);
 
+        canvas.save();
+        for (RectF box : boxes.values()) {
+            clipOut(canvas, box);
+        }
         for (DiagramModel.Edge edge : edges) {
             if (connect(boxes.get(edge.from), boxes.get(edge.to))) {
                 canvas.drawLine(line[0], line[1], line[2], line[3], boxPaint);
+                drawArrowhead(canvas);
+                if (!edge.label.isEmpty()) {
+                    drawEdgeLabel(canvas, edge.label);
+                }
             }
         }
+        canvas.restore();
         for (DiagramModel.Node node : nodes) {
-            RectF box = boxes.get(node.id);
-            canvas.drawRoundRect(box, nodeCornerRadius, nodeCornerRadius, boxPaint);
-            float baseline = box.centerY() - (textPaint.ascent() + textPaint.descent()) / 2;
-            canvas.drawText(node.label, box.centerX(), baseline, textPaint);
+            drawNode(canvas, boxes.get(node.id), labelLines.get(node.id));
         }
         canvas.restore();
     }
@@ -177,6 +207,12 @@ public class DiagramView extends View {
         textPaint.setColor(inkColor);
         textPaint.setTextSize(labelTextSize);
         textPaint.setTextAlign(Paint.Align.CENTER);
+
+        arrowPaint.setStyle(Paint.Style.FILL);
+        arrowPaint.setColor(inkColor);
+
+        edgeLabelPaint.setColor(inkColor);
+        edgeLabelPaint.setTextSize(labelTextSize * 0.85f);
     }
 
     public void setInkColor(@ColorInt int color) {
@@ -207,5 +243,79 @@ public class DiagramView extends View {
         layoutSpacing = spacing;
         placeBoxes();
         invalidate();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void clipOut(Canvas canvas, RectF box) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            canvas.clipOutRect(box);
+        } else {
+            canvas.clipRect(box, Region.Op.DIFFERENCE);
+        }
+    }
+
+    private void drawNode(Canvas canvas, RectF box, List<String> lines) {
+        canvas.drawRoundRect(box, nodeCornerRadius, nodeCornerRadius, boxPaint);
+
+        float lineHeight = textPaint.getFontSpacing();
+        float baseline = box.centerY() - lines.size() * lineHeight / 2 - textPaint.ascent();
+        for (String text : lines) {
+            canvas.drawText(text, box.centerX(), baseline, textPaint);
+            baseline += lineHeight;
+        }
+    }
+
+    private void drawArrowhead(Canvas canvas) {
+        float tipX = line[2];
+        float tipY = line[3];
+        double angle = Math.atan2(tipY - line[1], tipX - line[0]);
+        arrowPath.reset();
+        arrowPath.moveTo(tipX, tipY);
+        arrowPath.lineTo(tipX - arrowLength * (float) Math.cos(angle - ARROW_SPREAD),
+                tipY - arrowLength * (float) Math.sin(angle - ARROW_SPREAD));
+        arrowPath.lineTo(tipX - arrowLength * (float) Math.cos(angle + ARROW_SPREAD),
+                tipY - arrowLength * (float) Math.sin(angle + ARROW_SPREAD));
+        arrowPath.close();
+        canvas.drawPath(arrowPath, arrowPaint);
+    }
+
+    private void drawEdgeLabel(Canvas canvas, String label) {
+        float midX = (line[0] + line[2]) / 2;
+        float midY = (line[1] + line[3]) / 2;
+        if (line[1] == line[3]) {
+            canvas.drawText(label, midX - edgeLabelPaint.measureText(label) / 2,
+                    midY - labelGap, edgeLabelPaint);
+        } else {
+            canvas.drawText(label, midX + labelGap,
+                    midY - (edgeLabelPaint.ascent() + edgeLabelPaint.descent()) / 2,
+                    edgeLabelPaint);
+        }
+    }
+
+    private List<String> wrap(String text, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.trim().split("\\s+")) {
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (line.length() > 0 && textPaint.measureText(candidate) > maxWidth) {
+                lines.add(line.toString());
+                line.setLength(0);
+                line.append(word);
+            } else {
+                line.setLength(0);
+                line.append(candidate);
+            }
+        }
+        lines.add(line.toString());
+
+        if (lines.size() > MAX_LABEL_LINES) {
+            lines = new ArrayList<>(lines.subList(0, MAX_LABEL_LINES));
+            String last = lines.get(MAX_LABEL_LINES - 1);
+            while (last.length() > 1 && textPaint.measureText(last + "...") > maxWidth) {
+                last = last.substring(0, last.length() - 1);
+            }
+            lines.set(MAX_LABEL_LINES - 1, last.trim() + "...");
+        }
+        return lines;
     }
 }

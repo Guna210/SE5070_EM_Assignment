@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="DiagramView">
+        <attr name="inkColor" format="color" />
+        <attr name="nodeCornerRadius" format="dimension" />
+        <attr name="labelTextSize" format="dimension" />
+        <attr name="nodeWidth" format="dimension" />
+        <attr name="layoutSpacing" format="dimension" />
+    </declare-styleable>
+</resources>

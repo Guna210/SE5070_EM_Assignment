@@ -22,4 +22,10 @@
     <string name="state_synced">Synced</string>
     <string name="state_not_synced">Not synced yet</string>
     <string name="state_upload_failed">Upload failed</string>
+
+    <string name="back">Back</string>
+    <string name="no_diagram">No diagram yet. Gemini adds one after it has read the board, if the board has one.</string>
+    <string name="text_heading">Text read from the board</string>
+    <string name="no_text">No text was found on this board.</string>
+    <string name="photo_description">The photographed board</string>
 </resources>

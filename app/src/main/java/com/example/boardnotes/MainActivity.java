@@ -21,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.example.boardnotes.databinding.ActivityMainBinding;
 import com.example.boardnotes.ui.capture.CaptureActivity;
+import com.example.boardnotes.ui.notedetail.NoteDetailActivity;
 import com.example.boardnotes.ui.notelist.NoteListAdapter;
 import com.example.boardnotes.ui.notelist.NoteListUiState;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
@@ -62,7 +63,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
-        NoteListAdapter adapter = new NoteListAdapter();
+        NoteListAdapter adapter = new NoteListAdapter(note ->
+                startActivity(NoteDetailActivity.newIntent(this, note.id)));
         binding.notes.setAdapter(adapter);
 
         viewModel.getUiState().observe(this, state -> {

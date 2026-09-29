@@ -1,16 +1,20 @@
 package com.example.boardnotes.data.repository;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
 
 import com.example.boardnotes.data.local.AppDatabase;
 import com.example.boardnotes.data.local.dao.DiagramDao;
 import com.example.boardnotes.data.local.dao.NoteDao;
 import com.example.boardnotes.data.local.dao.SyncQueueDao;
+import com.example.boardnotes.data.local.entity.Diagram;
 import com.example.boardnotes.data.local.entity.Note;
 import com.example.boardnotes.data.local.entity.SyncQueueEntry;
 import com.example.boardnotes.domain.QueueStatus;
@@ -69,6 +73,20 @@ public class NoteRepository {
 
     public LiveData<Boolean> observeOnline() {
         return networkMonitor;
+    }
+
+    public LiveData<Note> observeNote(String id) {
+        return noteDao.observeById(id);
+    }
+
+    public LiveData<Diagram> observeDiagram(String noteId) {
+        return diagramDao.observeForNote(noteId);
+    }
+
+    public LiveData<Bitmap> loadPhoto(String imagePath) {
+        MutableLiveData<Bitmap> photo = new MutableLiveData<>();
+        executors.diskIO().execute(() -> photo.postValue(BitmapFactory.decodeFile(imagePath)));
+        return photo;
     }
 
     // Deletes a note locally and queues the remote delete, atomically.

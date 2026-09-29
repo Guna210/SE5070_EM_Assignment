@@ -20,8 +20,15 @@ import java.util.Objects;
 
 public class NoteListAdapter extends ListAdapter<Note, NoteListAdapter.NoteViewHolder> {
 
-    public NoteListAdapter() {
+    public interface OnNoteClickListener {
+        void onNoteClick(Note note);
+    }
+
+    private final OnNoteClickListener listener;
+
+    public NoteListAdapter(OnNoteClickListener listener) {
         super(DIFF);
+        this.listener = listener;
     }
 
     @NonNull
@@ -34,7 +41,9 @@ public class NoteListAdapter extends ListAdapter<Note, NoteListAdapter.NoteViewH
 
     @Override
     public void onBindViewHolder(@NonNull NoteViewHolder holder, int position) {
-        holder.bind(getItem(position));
+        Note note = getItem(position);
+        holder.bind(note);
+        holder.itemView.setOnClickListener(v -> listener.onNoteClick(note));
     }
 
     static class NoteViewHolder extends RecyclerView.ViewHolder {

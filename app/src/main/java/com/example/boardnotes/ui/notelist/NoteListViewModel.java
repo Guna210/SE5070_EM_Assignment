@@ -37,6 +37,10 @@ public class NoteListViewModel extends AndroidViewModel {
 
         uiState.addSource(repository.observeTextCount(), text ->
                 uiState.setValue(current().withTextCount(text == null ? 0 : text)));
+
+        uiState.addSource(repository.observeLatestDiagram(), diagram ->
+                uiState.setValue(current().withLatestDiagramJson(
+                        diagram == null ? null : diagram.diagramJson)));
     }
 
     private NoteListUiState current() {

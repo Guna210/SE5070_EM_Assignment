@@ -32,8 +32,8 @@ public interface SyncQueueDao {
     @Query("DELETE FROM sync_queue WHERE queueId = :queueId")
     void remove(long queueId);
 
-    @Query("SELECT COUNT(*) FROM sync_queue")
-    LiveData<Integer> observeQueueSize();
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status IN (:pending, :inFlight)")
+    LiveData<Integer> observeWaitingCount(QueueStatus pending, QueueStatus inFlight);
 
     @Query("UPDATE sync_queue SET status = :status, attemptCount = CASE WHEN attemptCount > 0 THEN attemptCount - 1 ELSE 0 END "
             + "WHERE queueId = :queueId")

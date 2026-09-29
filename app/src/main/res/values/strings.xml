@@ -1,15 +1,25 @@
 <resources>
     <string name="app_name">BoardNotes</string>
     <string name="loading">Loading…</string>
-    <string name="add_test_note">Add test note</string>
-    <string name="delete_oldest">Delete oldest note</string>
     <string name="online">Online</string>
     <string name="offline">Offline</string>
-    <string name="status_format">Notes: %1$d\nWith text: %2$d\nSynced: %3$d\nPending sync ops: %4$d\nNetwork: %5$s</string>
-    <string name="import_image">Import from gallery</string>
+    <string name="import_image">Import</string>
     <string name="shutter">Capture</string>
-    <string name="capture_image">Capture from camera</string>
+    <string name="capture_image">Capture</string>
     <string name="camera_unavailable">Camera unavailable on this device</string>
     <string name="capture_failed">Capture failed</string>
     <string name="camera_permission_denied">Camera permission is needed to photograph a board. Gallery import still works.</string>
+
+    <string name="status_line">%1$s · %2$s</string>
+    <string name="all_synced">everything is synced</string>
+    <plurals name="waiting_to_sync">
+        <item quantity="one">%d item waiting to sync</item>
+        <item quantity="other">%d items waiting to sync</item>
+    </plurals>
+    <string name="no_notes">No notes yet.\nCapture a whiteboard, or import a photo of one.</string>
+    <string name="untitled_note">Untitled note</string>
+    <string name="note_details">%1$s · %2$s</string>
+    <string name="state_synced">Synced</string>
+    <string name="state_not_synced">Not synced yet</string>
+    <string name="state_upload_failed">Upload failed</string>
 </resources>

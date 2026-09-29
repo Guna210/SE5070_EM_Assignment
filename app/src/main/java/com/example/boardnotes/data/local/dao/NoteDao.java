@@ -37,12 +37,6 @@ public interface NoteDao {
     @Query("UPDATE notes SET syncState = :state, updatedAt = :now WHERE id = :id")
     void updateState(String id, SyncState state, long now);
 
-    @Query("SELECT COUNT(*) FROM notes WHERE syncState = :state")
-    LiveData<Integer> observeCountByState(SyncState state);
-
-    @Query("SELECT COUNT(*) FROM notes WHERE ocrText IS NOT NULL AND TRIM(ocrText) != ''")
-    LiveData<Integer> observeTextCount();
-
     // Returns how many rows changed. Zero means the note no longer exists.
     @Query("UPDATE notes SET title = :title, category = :category, syncState = :state, "
             + "updatedAt = :now WHERE id = :id")

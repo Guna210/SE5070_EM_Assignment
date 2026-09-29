@@ -11,7 +11,6 @@ import com.example.boardnotes.data.local.AppDatabase;
 import com.example.boardnotes.data.local.dao.DiagramDao;
 import com.example.boardnotes.data.local.dao.NoteDao;
 import com.example.boardnotes.data.local.dao.SyncQueueDao;
-import com.example.boardnotes.data.local.entity.Diagram;
 import com.example.boardnotes.data.local.entity.Note;
 import com.example.boardnotes.data.local.entity.SyncQueueEntry;
 import com.example.boardnotes.domain.QueueStatus;
@@ -64,29 +63,12 @@ public class NoteRepository {
         return noteDao.observeAll();
     }
 
-    public LiveData<Integer> observeQueueSize() {
-        return queueDao.observeQueueSize();
-    }
-
-    public LiveData<Integer> observeSyncedCount() {
-        return noteDao.observeCountByState(SyncState.SYNCED);
+    public LiveData<Integer> observeWaitingCount() {
+        return queueDao.observeWaitingCount(QueueStatus.PENDING, QueueStatus.IN_FLIGHT);
     }
 
     public LiveData<Boolean> observeOnline() {
         return networkMonitor;
-    }
-
-    public LiveData<Integer> observeTextCount() {
-        return noteDao.observeTextCount();
-    }
-
-    public LiveData<Diagram> observeLatestDiagram() {
-        return diagramDao.observeLatest();
-    }
-
-    // Creates a note and queues it for upload, atomically.
-    public void createNote(String imagePath) {
-        executors.diskIO().execute(() -> insertNoteWithWorkQueued(imagePath, null));
     }
 
     // Deletes a note locally and queues the remote delete, atomically.

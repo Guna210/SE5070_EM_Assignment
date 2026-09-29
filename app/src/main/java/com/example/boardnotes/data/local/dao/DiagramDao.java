@@ -18,7 +18,4 @@ public interface DiagramDao {
 
     @Query("SELECT * FROM diagrams WHERE noteId = :noteId")
     Diagram findForNote(String noteId);
-
-    @Query("SELECT * FROM diagrams ORDER BY updatedAt DESC LIMIT 1")
-    LiveData<Diagram> observeLatest();
 }

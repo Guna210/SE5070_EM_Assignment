@@ -70,6 +70,9 @@ public class MainActivity extends AppCompatActivity {
             binding.diagram.setDiagramJson(state.latestDiagramJson);
         });
 
+        binding.diagram.setOnNodeSelectedListener((nodeId, label) ->
+                Toast.makeText(this, label, Toast.LENGTH_SHORT).show());
+
         binding.addNote.setOnClickListener(v -> viewModel.addTestNote());
         binding.deleteOldest.setOnClickListener(v -> viewModel.deleteOldest());
 

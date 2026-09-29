@@ -10,6 +10,7 @@ import android.graphics.Region;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.TypedValue;
+import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.ColorInt;
@@ -34,10 +35,15 @@ public class DiagramView extends View {
     private static final int MAX_LABEL_LINES = 3;
     private static final double ARROW_SPREAD = Math.toRadians(25);
 
+    public interface OnNodeSelectedListener {
+        void onNodeSelected(String nodeId, String label);
+    }
+
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint arrowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edgeLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path arrowPath = new Path();
     private final float[] line = new float[4];
     private final float arrowLength;
@@ -56,6 +62,12 @@ public class DiagramView extends View {
     private final Map<String, List<String>> labelLines = new HashMap<>();
     private float contentWidth;
     private float contentHeight;
+
+    @Nullable private OnNodeSelectedListener listener;
+    @Nullable private String selectedId;
+    private float drawScale = 1f;
+    private float drawLeft;
+    private float drawTop;
 
     public DiagramView(@NonNull Context context) {
         this(context, null);
@@ -89,6 +101,7 @@ public class DiagramView extends View {
         DiagramModel model = DiagramModel.fromJson(json);
         nodes = model == null ? Collections.emptyList() : model.nodes();
         edges = model == null ? Collections.emptyList() : model.edges();
+        selectedId = null;
         placeBoxes();
         invalidate();
     }
@@ -139,12 +152,13 @@ public class DiagramView extends View {
             return;
         }
 
-        float scale = Math.min(1f, Math.min(getWidth() / contentWidth,
+        drawScale = Math.min(1f, Math.min(getWidth() / contentWidth,
                 getHeight() / contentHeight));
+        drawLeft = (getWidth() - contentWidth * drawScale) / 2;
+        drawTop = (getHeight() - contentHeight * drawScale) / 2;
         canvas.save();
-        canvas.translate((getWidth() - contentWidth * scale) / 2,
-                (getHeight() - contentHeight * scale) / 2);
-        canvas.scale(scale, scale);
+        canvas.translate(drawLeft, drawTop);
+        canvas.scale(drawScale, drawScale);
 
         canvas.save();
         for (RectF box : boxes.values()) {
@@ -161,7 +175,7 @@ public class DiagramView extends View {
         }
         canvas.restore();
         for (DiagramModel.Node node : nodes) {
-            drawNode(canvas, boxes.get(node.id), labelLines.get(node.id));
+            drawNode(canvas, node);
         }
         canvas.restore();
     }
@@ -213,6 +227,10 @@ public class DiagramView extends View {
 
         edgeLabelPaint.setColor(inkColor);
         edgeLabelPaint.setTextSize(labelTextSize * 0.85f);
+
+        selectedPaint.setStyle(Paint.Style.STROKE);
+        selectedPaint.setStrokeWidth(dp(3.5f));
+        selectedPaint.setColor(inkColor);
     }
 
     public void setInkColor(@ColorInt int color) {
@@ -254,9 +272,12 @@ public class DiagramView extends View {
         }
     }
 
-    private void drawNode(Canvas canvas, RectF box, List<String> lines) {
-        canvas.drawRoundRect(box, nodeCornerRadius, nodeCornerRadius, boxPaint);
+    private void drawNode(Canvas canvas, DiagramModel.Node node) {
+        RectF box = boxes.get(node.id);
+        Paint outline = node.id.equals(selectedId) ? selectedPaint : boxPaint;
+        canvas.drawRoundRect(box, nodeCornerRadius, nodeCornerRadius, outline);
 
+        List<String> lines = labelLines.get(node.id);
         float lineHeight = textPaint.getFontSpacing();
         float baseline = box.centerY() - lines.size() * lineHeight / 2 - textPaint.ascent();
         for (String text : lines) {
@@ -317,5 +338,46 @@ public class DiagramView extends View {
             lines.set(MAX_LABEL_LINES - 1, last.trim() + "...");
         }
         return lines;
+    }
+
+    public void setOnNodeSelectedListener(@Nullable OnNodeSelectedListener listener) {
+        this.listener = listener;
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            return true;
+        }
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            DiagramModel.Node tapped = nodeAt(event.getX(), event.getY());
+            if (tapped != null) {
+                selectedId = tapped.id;
+                invalidate();
+                if (listener != null) {
+                    listener.onNodeSelected(tapped.id, tapped.label);
+                }
+            }
+            performClick();
+            return true;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    @Override
+    public boolean performClick() {
+        return super.performClick();
+    }
+
+    @Nullable
+    private DiagramModel.Node nodeAt(float x, float y) {
+        float diagramX = (x - drawLeft) / drawScale;
+        float diagramY = (y - drawTop) / drawScale;
+        for (DiagramModel.Node node : nodes) {
+            if (boxes.get(node.id).contains(diagramX, diagramY)) {
+                return node;
+            }
+        }
+        return null;
     }
 }

@@ -33,6 +33,21 @@
                 android:textColor="?attr/colorOnSurfaceVariant"
                 tools:text="Chemistry · 27 Sep, 20:34" />
 
+            <TextView
+                android:id="@+id/aiStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/retryAi"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone" />
+
             <com.example.boardnotes.ui.components.DiagramView
                 android:id="@+id/diagram"
                 android:layout_width="match_parent"

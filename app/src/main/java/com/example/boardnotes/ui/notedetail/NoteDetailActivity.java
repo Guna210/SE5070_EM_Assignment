@@ -7,6 +7,7 @@ import android.text.format.DateUtils;
 import android.view.View;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -15,7 +16,9 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.example.boardnotes.R;
 import com.example.boardnotes.data.local.entity.Note;
+import com.example.boardnotes.data.local.entity.SyncQueueEntry;
 import com.example.boardnotes.databinding.ActivityNoteDetailBinding;
+import com.example.boardnotes.domain.QueueStatus;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class NoteDetailActivity extends AppCompatActivity {
@@ -56,6 +59,7 @@ public class NoteDetailActivity extends AppCompatActivity {
 
         binding.diagram.setOnNodeSelectedListener((nodeId, label) ->
                 binding.selectedLabel.setText(label));
+        binding.retryAi.setOnClickListener(v -> viewModel.retryEnrichment());
 
         viewModel.getUiState().observe(this, state -> {
             if (!state.loaded) {
@@ -77,6 +81,7 @@ public class NoteDetailActivity extends AppCompatActivity {
                         | DateUtils.FORMAT_ABBREV_MONTH);
         binding.details.setText(note.category != null
                 ? getString(R.string.note_details, note.category, when) : when);
+        showAiStatus(note, state.enrichment);
 
         boolean hasDiagram = state.diagramJson != null;
         binding.diagram.setDiagramJson(state.diagramJson);
@@ -97,5 +102,27 @@ public class NoteDetailActivity extends AppCompatActivity {
                 .setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.delete, (dialog, which) -> viewModel.delete())
                 .show();
+    }
+
+    private void showAiStatus(Note note, @Nullable SyncQueueEntry enrichment) {
+        boolean read = note.title != null;
+        boolean reading = enrichment != null && enrichment.status == QueueStatus.IN_FLIGHT;
+        binding.aiStatus.setVisibility(read ? View.GONE : View.VISIBLE);
+        binding.retryAi.setVisibility(read || reading ? View.GONE : View.VISIBLE);
+        if (read) {
+            return;
+        }
+        if (enrichment == null) {
+            binding.aiStatus.setText(R.string.ai_not_read);
+            binding.retryAi.setText(R.string.read_with_ai);
+        } else if (reading) {
+            binding.aiStatus.setText(R.string.ai_reading);
+        } else if (enrichment.lastError == null) {
+            binding.aiStatus.setText(R.string.ai_waiting);
+            binding.retryAi.setText(R.string.try_now);
+        } else {
+            binding.aiStatus.setText(getString(R.string.ai_failed, enrichment.lastError));
+            binding.retryAi.setText(R.string.try_again);
+        }
     }
 }

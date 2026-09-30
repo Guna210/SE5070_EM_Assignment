@@ -41,6 +41,9 @@ public class NoteDetailViewModel extends AndroidViewModel {
         uiState.addSource(repository.observeDiagram(noteId), diagram ->
                 uiState.setValue(current().withDiagramJson(
                         diagram == null ? null : diagram.diagramJson)));
+
+        uiState.addSource(repository.observeEnrichment(noteId), enrichment ->
+                uiState.setValue(current().withEnrichment(enrichment)));
     }
 
     private NoteDetailUiState current() {
@@ -56,6 +59,13 @@ public class NoteDetailViewModel extends AndroidViewModel {
         NoteDetailUiState state = current();
         if (state.note != null) {
             repository.deleteNote(state.note);
+        }
+    }
+
+    public void retryEnrichment() {
+        NoteDetailUiState state = current();
+        if (state.note != null) {
+            repository.retryEnrichment(state.note.id);
         }
     }
 }

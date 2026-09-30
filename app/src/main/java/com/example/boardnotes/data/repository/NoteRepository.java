@@ -174,4 +174,28 @@ public class NoteRepository {
 
         SyncScheduler.requestSync(appContext);
     }
+
+    public LiveData<SyncQueueEntry> observeEnrichment(String noteId) {
+        return queueDao.observeLatest(noteId, SyncOperation.ENRICH);
+    }
+
+    public void retryEnrichment(String noteId) {
+        executors.diskIO().execute(() -> {
+            db.runInTransaction(() -> {
+                SyncQueueEntry existing = queueDao.findLatest(noteId, SyncOperation.ENRICH);
+                if (existing == null) {
+                    // Never queued, or read before results were saved (before Step 12's change).
+                    SyncQueueEntry enrich = new SyncQueueEntry();
+                    enrich.noteId = noteId;
+                    enrich.operation = SyncOperation.ENRICH;
+                    enrich.status = QueueStatus.PENDING;
+                    enrich.createdAt = System.currentTimeMillis();
+                    queueDao.enqueue(enrich);
+                } else if (existing.status != QueueStatus.IN_FLIGHT) {
+                    queueDao.resetForRetry(existing.queueId, QueueStatus.PENDING);
+                }
+            });
+            SyncScheduler.requestSync(appContext);
+        });
+    }
 }

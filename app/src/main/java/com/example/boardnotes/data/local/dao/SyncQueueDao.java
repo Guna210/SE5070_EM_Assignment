@@ -45,6 +45,18 @@ public interface SyncQueueDao {
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = :status AND operation IN (:operations)")
     int countPending(QueueStatus status, List<SyncOperation> operations);
 
+    @Query("SELECT * FROM sync_queue WHERE noteId = :noteId AND operation = :operation "
+            + "ORDER BY queueId DESC LIMIT 1")
+    LiveData<SyncQueueEntry> observeLatest(String noteId, SyncOperation operation);
+
+    @Query("SELECT * FROM sync_queue WHERE noteId = :noteId AND operation = :operation "
+            + "ORDER BY queueId DESC LIMIT 1")
+    SyncQueueEntry findLatest(String noteId, SyncOperation operation);
+
+    @Query("UPDATE sync_queue SET status = :pending, attemptCount = 0, lastError = NULL "
+            + "WHERE queueId = :queueId")
+    void resetForRetry(long queueId, QueueStatus pending);
+
     /* Atomically take a batch of pending work and mark it IN_FLIGHT, so two
        worker runs can never dispatch the same entry twice. */
     @Transaction

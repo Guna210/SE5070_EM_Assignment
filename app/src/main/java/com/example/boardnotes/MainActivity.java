@@ -25,6 +25,7 @@ import com.example.boardnotes.ui.notedetail.NoteDetailActivity;
 import com.example.boardnotes.ui.notelist.NoteListAdapter;
 import com.example.boardnotes.ui.notelist.NoteListUiState;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
@@ -74,6 +75,12 @@ public class MainActivity extends AppCompatActivity {
             adapter.submitList(state.notes);
             binding.empty.setVisibility(state.notes.isEmpty() ? View.VISIBLE : View.GONE);
             binding.status.setText(statusLine(state));
+            if (state.importFailed) {
+                Snackbar.make(binding.getRoot(), R.string.import_failed, Snackbar.LENGTH_LONG)
+                        .setAnchorView(binding.captureImage)
+                        .show();
+                viewModel.importFailureShown();
+            }
         });
 
         binding.importImage.setOnClickListener(v -> pickImage.launch(new PickVisualMediaRequest.Builder()

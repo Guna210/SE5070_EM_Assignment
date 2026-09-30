@@ -34,4 +34,5 @@
     <string name="delete_title">Delete this note?</string>
     <string name="delete_message">It is removed from this phone now, and from the cloud the next time the phone is online. This cannot be undone.</string>
     <string name="cancel">Cancel</string>
+    <string name="import_failed">That image could not be imported. Try another photo.</string>
 </resources>

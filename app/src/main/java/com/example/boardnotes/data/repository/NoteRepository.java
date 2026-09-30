@@ -40,6 +40,7 @@ public class NoteRepository {
     private final NetworkMonitor networkMonitor;
     private final Context appContext;
     private final DiagramDao diagramDao;
+    private final MutableLiveData<Boolean> importFailed = new MutableLiveData<>(false);
 
     private NoteRepository(Context context) {
         appContext = context.getApplicationContext();
@@ -73,6 +74,14 @@ public class NoteRepository {
 
     public LiveData<Boolean> observeOnline() {
         return networkMonitor;
+    }
+
+    public LiveData<Boolean> observeImportFailed() {
+        return importFailed;
+    }
+
+    public void clearImportFailed() {
+        importFailed.setValue(false);
     }
 
     public LiveData<Note> observeNote(String id) {
@@ -113,6 +122,7 @@ public class NoteRepository {
                 insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
             } catch (IOException e) {
                 Log.e("BoardNotes", "Image import failed", e);
+                importFailed.postValue(true);
             }
         });
     }
@@ -124,6 +134,7 @@ public class NoteRepository {
                 insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
             } catch (IOException e) {
                 Log.e("BoardNotes", "Capture import failed", e);
+                importFailed.postValue(true);
             } finally {
                 if (captured.exists() && !captured.delete()) {
                     Log.w("BoardNotes", "Temporary capture not deleted: " + captured);

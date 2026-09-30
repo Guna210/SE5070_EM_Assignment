@@ -26,11 +26,11 @@ public class NoteListViewModel extends AndroidViewModel {
         uiState.addSource(repository.observeOnline(), online ->
                 uiState.setValue(current().withOnline(online != null && online)));
 
-        uiState.addSource(repository.observeNotes(), notes ->
-                uiState.setValue(current().withNotes(notes)));
-
         uiState.addSource(repository.observeWaitingCount(), count ->
                 uiState.setValue(current().withWaitingCount(count == null ? 0 : count)));
+
+        uiState.addSource(repository.observeImportFailed(), failed ->
+                uiState.setValue(current().withImportFailed(failed != null && failed)));
     }
 
     private NoteListUiState current() {
@@ -46,5 +46,9 @@ public class NoteListViewModel extends AndroidViewModel {
         if (uri != null) {
             repository.createNoteFromUri(uri);
         }
+    }
+
+    public void importFailureShown() {
+        repository.clearImportFailed();
     }
 }

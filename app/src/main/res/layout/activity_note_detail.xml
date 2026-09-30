@@ -10,6 +10,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
+        app:menu="@menu/menu_note_detail"
         app:navigationContentDescription="@string/back"
         app:navigationIcon="?attr/homeAsUpIndicator" />
 
@@ -42,6 +43,14 @@
                 app:labelTextSize="12sp"
                 app:nodeWidth="90dp"
                 app:layoutSpacing="14dp" />
+
+            <TextView
+                android:id="@+id/selectedLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/tap_a_box"
+                android:textAppearance="?attr/textAppearanceBodyLarge" />
 
             <TextView
                 android:id="@+id/noDiagram"

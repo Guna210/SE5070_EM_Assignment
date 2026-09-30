@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModelProvider;
 import com.example.boardnotes.R;
 import com.example.boardnotes.data.local.entity.Note;
 import com.example.boardnotes.databinding.ActivityNoteDetailBinding;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class NoteDetailActivity extends AppCompatActivity {
     private static final String EXTRA_NOTE_ID = "com.example.boardnotes.NOTE_ID";
@@ -45,6 +46,17 @@ public class NoteDetailActivity extends AppCompatActivity {
         NoteDetailViewModel viewModel = new ViewModelProvider(this).get(NoteDetailViewModel.class);
         viewModel.start(getIntent().getStringExtra(EXTRA_NOTE_ID));
 
+        binding.toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.delete) {
+                confirmDelete(viewModel);
+                return true;
+            }
+            return false;
+        });
+
+        binding.diagram.setOnNodeSelectedListener((nodeId, label) ->
+                binding.selectedLabel.setText(label));
+
         viewModel.getUiState().observe(this, state -> {
             if (!state.loaded) {
                 return;
@@ -70,10 +82,20 @@ public class NoteDetailActivity extends AppCompatActivity {
         binding.diagram.setDiagramJson(state.diagramJson);
         binding.diagram.setVisibility(hasDiagram ? View.VISIBLE : View.GONE);
         binding.noDiagram.setVisibility(hasDiagram ? View.GONE : View.VISIBLE);
+        binding.selectedLabel.setVisibility(hasDiagram ? View.VISIBLE : View.GONE);
 
         binding.photo.setImageBitmap(state.photo);
         binding.photo.setVisibility(state.photo != null ? View.VISIBLE : View.GONE);
 
         binding.ocrText.setText(note.ocrText != null ? note.ocrText : getString(R.string.no_text));
+    }
+
+    private void confirmDelete(NoteDetailViewModel viewModel) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.delete_title)
+                .setMessage(R.string.delete_message)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.delete, (dialog, which) -> viewModel.delete())
+                .show();
     }
 }

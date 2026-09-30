@@ -51,4 +51,11 @@ public class NoteDetailViewModel extends AndroidViewModel {
     public LiveData<NoteDetailUiState> getUiState() {
         return uiState;
     }
+
+    public void delete() {
+        NoteDetailUiState state = current();
+        if (state.note != null) {
+            repository.deleteNote(state.note);
+        }
+    }
 }

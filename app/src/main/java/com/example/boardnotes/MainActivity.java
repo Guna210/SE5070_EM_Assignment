@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -20,7 +21,11 @@ import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.example.boardnotes.databinding.ActivityMainBinding;
 import com.example.boardnotes.ui.capture.CaptureActivity;
+import com.example.boardnotes.ui.notedetail.NoteDetailActivity;
+import com.example.boardnotes.ui.notelist.NoteListAdapter;
+import com.example.boardnotes.ui.notelist.NoteListUiState;
 import com.example.boardnotes.ui.notelist.NoteListViewModel;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
@@ -59,22 +64,24 @@ public class MainActivity extends AppCompatActivity {
         });
 
         viewModel = new ViewModelProvider(this).get(NoteListViewModel.class);
+        NoteListAdapter adapter = new NoteListAdapter(note ->
+                startActivity(NoteDetailActivity.newIntent(this, note.id)));
+        binding.notes.setAdapter(adapter);
 
-        viewModel.getUiState().observe(this, state -> {binding.status.setText(getString(
-                R.string.status_format,
-                state.noteCount(),
-                state.textCount,
-                state.syncedCount,
-                state.queueSize,
-                getString(state.isOnline ? R.string.online : R.string.offline)));
-            binding.diagram.setDiagramJson(state.latestDiagramJson);
+        viewModel.getUiState().observe(this, state -> {
+            if (!state.loaded) {
+                return; // Keep showing "Loading…" until the database has answered once.
+            }
+            adapter.submitList(state.notes);
+            binding.empty.setVisibility(state.notes.isEmpty() ? View.VISIBLE : View.GONE);
+            binding.status.setText(statusLine(state));
+            if (state.importFailed) {
+                Snackbar.make(binding.getRoot(), R.string.import_failed, Snackbar.LENGTH_LONG)
+                        .setAnchorView(binding.captureImage)
+                        .show();
+                viewModel.importFailureShown();
+            }
         });
-
-        binding.diagram.setOnNodeSelectedListener((nodeId, label) ->
-                Toast.makeText(this, label, Toast.LENGTH_SHORT).show());
-
-        binding.addNote.setOnClickListener(v -> viewModel.addTestNote());
-        binding.deleteOldest.setOnClickListener(v -> viewModel.deleteOldest());
 
         binding.importImage.setOnClickListener(v -> pickImage.launch(new PickVisualMediaRequest.Builder()
                 .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
@@ -109,5 +116,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void openCamera() {
         startActivity(new Intent(this, CaptureActivity.class));
+    }
+
+    private String statusLine(NoteListUiState state) {
+        String network = getString(state.isOnline ? R.string.online : R.string.offline);
+        String work = state.waitingCount == 0
+                ? getString(R.string.all_synced)
+                : getResources().getQuantityString(R.plurals.waiting_to_sync,
+                state.waitingCount, state.waitingCount);
+        return getString(R.string.status_line, network, work);
     }
 }

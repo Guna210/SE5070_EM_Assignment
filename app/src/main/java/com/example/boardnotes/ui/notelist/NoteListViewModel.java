@@ -8,10 +8,7 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 
-import com.example.boardnotes.data.local.entity.Note;
 import com.example.boardnotes.data.repository.NoteRepository;
-
-import java.util.List;
 
 public class NoteListViewModel extends AndroidViewModel {
     private final NoteRepository repository;
@@ -21,54 +18,37 @@ public class NoteListViewModel extends AndroidViewModel {
         super(application);
         repository = NoteRepository.getInstance(application);
 
-        uiState.setValue(NoteListUiState.empty());
+        uiState.setValue(NoteListUiState.loading());
 
         uiState.addSource(repository.observeNotes(), notes ->
                 uiState.setValue(current().withNotes(notes)));
 
-        uiState.addSource(repository.observeQueueSize(), size ->
-                uiState.setValue(current().withQueueSize(size == null ? 0 : size)));
-
         uiState.addSource(repository.observeOnline(), online ->
                 uiState.setValue(current().withOnline(online != null && online)));
 
-        uiState.addSource(repository.observeSyncedCount(), synced ->
-                uiState.setValue(current().withSyncedCount(synced == null ? 0 : synced)));
+        uiState.addSource(repository.observeWaitingCount(), count ->
+                uiState.setValue(current().withWaitingCount(count == null ? 0 : count)));
 
-        uiState.addSource(repository.observeTextCount(), text ->
-                uiState.setValue(current().withTextCount(text == null ? 0 : text)));
-
-        uiState.addSource(repository.observeLatestDiagram(), diagram ->
-                uiState.setValue(current().withLatestDiagramJson(
-                        diagram == null ? null : diagram.diagramJson)));
+        uiState.addSource(repository.observeImportFailed(), failed ->
+                uiState.setValue(current().withImportFailed(failed != null && failed)));
     }
 
     private NoteListUiState current() {
         NoteListUiState value = uiState.getValue();
-        return value == null ? NoteListUiState.empty() : value;
+        return value == null ? NoteListUiState.loading() : value;
     }
 
     public LiveData<NoteListUiState> getUiState() {
         return uiState;
     }
 
-    // Will be replaced with real camera capture
-    public void addTestNote() {
-        repository.createNote("/placeholder/capture-" + System.currentTimeMillis() + ".jpg");
-    }
-
-    public void deleteOldest() {
-        NoteListUiState state = current();
-        List<Note> notes = state.notes;
-        if (!notes.isEmpty()) {
-            // observeAll() is ordered createdAt DESC, so the oldest is last.
-            repository.deleteNote(notes.get(notes.size() - 1));
-        }
-    }
-
     public void importImage(Uri uri) {
         if (uri != null) {
             repository.createNoteFromUri(uri);
         }
+    }
+
+    public void importFailureShown() {
+        repository.clearImportFailed();
     }
 }

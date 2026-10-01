@@ -1,11 +1,14 @@
 package com.example.boardnotes.data.repository;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
 
 import com.example.boardnotes.data.local.AppDatabase;
 import com.example.boardnotes.data.local.dao.DiagramDao;
@@ -37,6 +40,7 @@ public class NoteRepository {
     private final NetworkMonitor networkMonitor;
     private final Context appContext;
     private final DiagramDao diagramDao;
+    private final MutableLiveData<Boolean> importFailed = new MutableLiveData<>(false);
 
     private NoteRepository(Context context) {
         appContext = context.getApplicationContext();
@@ -64,29 +68,34 @@ public class NoteRepository {
         return noteDao.observeAll();
     }
 
-    public LiveData<Integer> observeQueueSize() {
-        return queueDao.observeQueueSize();
-    }
-
-    public LiveData<Integer> observeSyncedCount() {
-        return noteDao.observeCountByState(SyncState.SYNCED);
+    public LiveData<Integer> observeWaitingCount() {
+        return queueDao.observeWaitingCount(QueueStatus.PENDING, QueueStatus.IN_FLIGHT);
     }
 
     public LiveData<Boolean> observeOnline() {
         return networkMonitor;
     }
 
-    public LiveData<Integer> observeTextCount() {
-        return noteDao.observeTextCount();
+    public LiveData<Boolean> observeImportFailed() {
+        return importFailed;
     }
 
-    public LiveData<Diagram> observeLatestDiagram() {
-        return diagramDao.observeLatest();
+    public void clearImportFailed() {
+        importFailed.setValue(false);
     }
 
-    // Creates a note and queues it for upload, atomically.
-    public void createNote(String imagePath) {
-        executors.diskIO().execute(() -> insertNoteWithWorkQueued(imagePath, null));
+    public LiveData<Note> observeNote(String id) {
+        return noteDao.observeById(id);
+    }
+
+    public LiveData<Diagram> observeDiagram(String noteId) {
+        return diagramDao.observeForNote(noteId);
+    }
+
+    public LiveData<Bitmap> loadPhoto(String imagePath) {
+        MutableLiveData<Bitmap> photo = new MutableLiveData<>();
+        executors.diskIO().execute(() -> photo.postValue(BitmapFactory.decodeFile(imagePath)));
+        return photo;
     }
 
     // Deletes a note locally and queues the remote delete, atomically.
@@ -113,6 +122,7 @@ public class NoteRepository {
                 insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
             } catch (IOException e) {
                 Log.e("BoardNotes", "Image import failed", e);
+                importFailed.postValue(true);
             }
         });
     }
@@ -124,6 +134,7 @@ public class NoteRepository {
                 insertNoteWithWorkQueued(imagePath, OcrEngine.extractText(appContext, imagePath));
             } catch (IOException e) {
                 Log.e("BoardNotes", "Capture import failed", e);
+                importFailed.postValue(true);
             } finally {
                 if (captured.exists() && !captured.delete()) {
                     Log.w("BoardNotes", "Temporary capture not deleted: " + captured);
@@ -162,5 +173,29 @@ public class NoteRepository {
         });
 
         SyncScheduler.requestSync(appContext);
+    }
+
+    public LiveData<SyncQueueEntry> observeEnrichment(String noteId) {
+        return queueDao.observeLatest(noteId, SyncOperation.ENRICH);
+    }
+
+    public void retryEnrichment(String noteId) {
+        executors.diskIO().execute(() -> {
+            db.runInTransaction(() -> {
+                SyncQueueEntry existing = queueDao.findLatest(noteId, SyncOperation.ENRICH);
+                if (existing == null) {
+                    // Never queued, or read before results were saved (before Step 12's change).
+                    SyncQueueEntry enrich = new SyncQueueEntry();
+                    enrich.noteId = noteId;
+                    enrich.operation = SyncOperation.ENRICH;
+                    enrich.status = QueueStatus.PENDING;
+                    enrich.createdAt = System.currentTimeMillis();
+                    queueDao.enqueue(enrich);
+                } else if (existing.status != QueueStatus.IN_FLIGHT) {
+                    queueDao.resetForRetry(existing.queueId, QueueStatus.PENDING);
+                }
+            });
+            SyncScheduler.requestSync(appContext);
+        });
     }
 }

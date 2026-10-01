@@ -30,6 +30,10 @@
             android:name=".ui.capture.CaptureActivity"
             android:exported="false">
         </activity>
+        <activity
+            android:name=".ui.notedetail.NoteDetailActivity"
+            android:exported="false">
+        </activity>
     </application>
 
 </manifest>
